@@ -13,7 +13,7 @@ brew install rtk
 # or: curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh
 
 # 2. Install the plugin
-pip install rtk-hermes
+~/.hermes/hermes-agent/venv/bin/python -m pip install rtk-hermes
 
 # 3. Restart Hermes — the plugin auto-registers, no config needed
 ```

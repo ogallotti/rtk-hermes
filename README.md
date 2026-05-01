@@ -66,6 +66,20 @@ The plugin **never blocks command execution**:
 - `rtk rewrite` times out (>2s) → command passes through unchanged
 - `rtk rewrite` crashes → command passes through unchanged
 - No RTK equivalent → command passes through unchanged
+- Unexpected RTK exit codes → logged as warnings, command passes through
+
+## RTK exit code protocol
+
+`rtk rewrite` uses the following exit codes:
+
+| Exit code | Meaning |
+|-----------|---------|
+| 0 | Rewrite allowed (auto-allow) |
+| 1 | No RTK equivalent (passthrough) |
+| 2 | Deny rule matched |
+| 3 | Ask rule matched — rewrite exists, needs confirmation |
+
+The plugin accepts both exit codes **0** and **3** as valid rewrites.
 
 ## License
 

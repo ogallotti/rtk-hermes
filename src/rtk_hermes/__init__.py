@@ -13,6 +13,12 @@ Installation:
 
 The plugin auto-registers via the hermes_agent.plugins entry point.
 No manual configuration needed — just install and restart Hermes.
+
+RTK Exit Code Protocol (rtk rewrite):
+    0 — Rewrite allowed (auto-allow)
+    1 — No RTK equivalent (passthrough)
+    2 — Deny rule matched
+    3 — Ask rule matched (rewrite exists, needs confirmation)
 """
 
 from __future__ import annotations
@@ -22,11 +28,16 @@ import shutil
 import subprocess
 from typing import Optional
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 logger = logging.getLogger(__name__)
 
 _rtk_available: Optional[bool] = None
+
+# Exit codes from `rtk rewrite` that indicate a successful rewrite.
+# 0 = auto-allow, 3 = ask rule (rewrite produced, awaiting confirmation).
+# See: https://github.com/rtk-ai/rtk docs/contributing/EXIT_CODES.md
+_RTK_OK_CODES = frozenset({0, 3})
 
 
 def _check_rtk() -> bool:
@@ -39,7 +50,13 @@ def _check_rtk() -> bool:
 
 
 def _try_rewrite(command: str) -> Optional[str]:
-    """Delegate to `rtk rewrite` and return the rewritten command, or None."""
+    """Delegate to ``rtk rewrite`` and return the rewritten command, or None.
+
+    Accepts RTK exit codes 0 (auto-allow) and 3 (ask rule) as successful
+    rewrites.  Both produce valid rewritten output on stdout.
+
+    Returns *None* when RTK is unavailable, times out, or has no rewrite.
+    """
     try:
         result = subprocess.run(
             ["rtk", "rewrite", command],
@@ -48,10 +65,26 @@ def _try_rewrite(command: str) -> Optional[str]:
             timeout=2,
         )
         rewritten = result.stdout.strip()
-        if result.returncode == 0 and rewritten and rewritten != command:
+
+        if result.returncode in _RTK_OK_CODES and rewritten and rewritten != command:
             return rewritten
+
+        # Log unexpected exit codes (not 0, 1, 2, 3) for diagnostics.
+        if result.returncode not in (0, 1, 2, 3):
+            stderr = result.stderr.strip()
+            logger.warning(
+                "[rtk] unexpected exit code %d for %r%s",
+                result.returncode,
+                command,
+                f": {stderr}" if stderr else "",
+            )
+
         return None
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+    except subprocess.TimeoutExpired:
+        logger.debug("[rtk] rewrite timed out for %r", command)
+        return None
+    except (FileNotFoundError, OSError) as exc:
+        logger.debug("[rtk] rewrite failed for %r: %s", command, exc)
         return None
 
 
@@ -71,7 +104,7 @@ def _pre_tool_call(*, tool_name: str, args: dict, task_id: str, **_kwargs) -> No
 
     rewritten = _try_rewrite(command)
     if rewritten:
-        logger.debug("[rtk] %s -> %s", command, rewritten)
+        logger.info("[rtk] %s -> %s", command, rewritten)
         args["command"] = rewritten
 
 

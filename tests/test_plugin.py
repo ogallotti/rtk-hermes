@@ -32,20 +32,31 @@ class TestCheckRtk:
 
 
 class TestTryRewrite:
-    def _fake(self, stdout="", rc=0):
-        return subprocess.CompletedProcess([], rc, stdout=stdout, stderr="")
+    def _fake(self, stdout="", rc=0, stderr=""):
+        return subprocess.CompletedProcess([], rc, stdout=stdout, stderr=stderr)
 
-    def test_rewrites(self):
+    def test_rewrites_on_exit_0(self):
         with patch("subprocess.run", return_value=self._fake("rtk git status\n")):
             assert rtk_hermes._try_rewrite("git status") == "rtk git status"
+
+    def test_rewrites_on_exit_3(self):
+        """RTK returns exit code 3 for 'ask' verdict — rewrite is still valid."""
+        with patch("subprocess.run", return_value=self._fake("rtk ls\n", rc=3)):
+            assert rtk_hermes._try_rewrite("ls") == "rtk ls"
+
+    def test_exit_1_returns_none(self):
+        """RTK exit code 1 means no equivalent — passthrough."""
+        with patch("subprocess.run", return_value=self._fake("", rc=1)):
+            assert rtk_hermes._try_rewrite("custom_cmd") is None
+
+    def test_exit_2_returns_none(self):
+        """RTK exit code 2 means deny rule matched."""
+        with patch("subprocess.run", return_value=self._fake("", rc=2)):
+            assert rtk_hermes._try_rewrite("rm -rf /") is None
 
     def test_same_command_returns_none(self):
         with patch("subprocess.run", return_value=self._fake("echo hello\n")):
             assert rtk_hermes._try_rewrite("echo hello") is None
-
-    def test_exit_1_returns_none(self):
-        with patch("subprocess.run", return_value=self._fake("", rc=1)):
-            assert rtk_hermes._try_rewrite("custom_cmd") is None
 
     def test_empty_stdout_returns_none(self):
         with patch("subprocess.run", return_value=self._fake("")):
@@ -74,6 +85,15 @@ class TestTryRewrite:
                 ["rtk", "rewrite", "git log --oneline -5"],
                 capture_output=True, text=True, timeout=2,
             )
+
+    def test_unexpected_exit_code_logs_warning(self, caplog):
+        """Exit codes outside 0-3 should be logged as warnings."""
+        with patch("subprocess.run", return_value=self._fake("", rc=99, stderr="oops")):
+            import logging
+            with caplog.at_level(logging.WARNING, logger="rtk_hermes"):
+                result = rtk_hermes._try_rewrite("git status")
+            assert result is None
+            assert "unexpected exit code 99" in caplog.text
 
 
 class TestPreToolCall:
@@ -143,7 +163,7 @@ class TestRegister:
 
 
 class TestIntegration:
-    def test_full_flow(self):
+    def test_full_flow_exit_0(self):
         hooks = {}
 
         class FakeCtx:
@@ -153,29 +173,35 @@ class TestIntegration:
         with patch.object(rtk_hermes, "_check_rtk", return_value=True):
             rtk_hermes.register(FakeCtx())
 
-        args = {"command": "cargo test"}
-        fake = subprocess.CompletedProcess([], 0, stdout="rtk cargo test\n", stderr="")
-        with patch("subprocess.run", return_value=fake):
+        assert "pre_tool_call" in hooks
+        args = {"command": "ls -la"}
+        with patch("subprocess.run", return_value=subprocess.CompletedProcess(
+            [], 0, stdout="rtk ls -la\n", stderr=""
+        )):
             hooks["pre_tool_call"](tool_name="terminal", args=args, task_id="t")
-        assert args["command"] == "rtk cargo test"
+        assert args["command"] == "rtk ls -la"
+
+    def test_full_flow_exit_3(self):
+        """Integration: exit code 3 rewrite applied end-to-end."""
+        hooks = {}
+
+        class FakeCtx:
+            def register_hook(self, name, cb):
+                hooks[name] = cb
+
+        with patch.object(rtk_hermes, "_check_rtk", return_value=True):
+            rtk_hermes.register(FakeCtx())
+
+        assert "pre_tool_call" in hooks
+        args = {"command": "git status"}
+        with patch("subprocess.run", return_value=subprocess.CompletedProcess(
+            [], 3, stdout="rtk git status\n", stderr=""
+        )):
+            hooks["pre_tool_call"](tool_name="terminal", args=args, task_id="t")
+        assert args["command"] == "rtk git status"
 
     def test_full_flow_no_rewrite(self):
-        hooks = {}
-
-        class FakeCtx:
-            def register_hook(self, name, cb):
-                hooks[name] = cb
-
-        with patch.object(rtk_hermes, "_check_rtk", return_value=True):
-            rtk_hermes.register(FakeCtx())
-
-        args = {"command": "echo hello"}
-        fake = subprocess.CompletedProcess([], 1, stdout="", stderr="")
-        with patch("subprocess.run", return_value=fake):
-            hooks["pre_tool_call"](tool_name="terminal", args=args, task_id="t")
-        assert args["command"] == "echo hello"
-
-    def test_full_flow_crash(self):
+        """Integration: non-terminal tool is not intercepted."""
         hooks = {}
 
         class FakeCtx:
@@ -186,6 +212,11 @@ class TestIntegration:
             rtk_hermes.register(FakeCtx())
 
         args = {"command": "git status"}
-        with patch("subprocess.run", side_effect=OSError("segfault")):
-            hooks["pre_tool_call"](tool_name="terminal", args=args, task_id="t")
+        hooks["pre_tool_call"](tool_name="web_search", args=args, task_id="t")
         assert args["command"] == "git status"
+
+    def test_rtk_ok_codes_constant(self):
+        """Verify the accepted exit codes set is correct and frozen."""
+        assert rtk_hermes._RTK_OK_CODES == frozenset({0, 3})
+        # frozenset is immutable — can't be accidentally mutated
+        assert isinstance(rtk_hermes._RTK_OK_CODES, frozenset)

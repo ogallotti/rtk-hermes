@@ -1,0 +1,44 @@
+# Changelog
+
+All notable changes to `rtk-hermes` are documented here.
+
+## 1.2.0 - 2026-05-02
+
+### Added
+
+- Runtime configuration through environment variables:
+  - `RTK_HERMES_MODE=rewrite|suggest|off`
+  - `RTK_HERMES_TIMEOUT_MS=<milliseconds>`
+  - `RTK_HERMES_PREVIEW_MARKER=true|false`
+- Visible RTK terminal preview marker: rewritten commands now default to `: RTK && <rewritten-command>`.
+- `/rtk` slash command support when the running Hermes version exposes plugin command registration.
+- In-process metrics for attempted rewrites, applied rewrites, suggestions, denied commands, timeouts and errors.
+- CI workflow for Python 3.9 through 3.13.
+- Contributor, security and troubleshooting documentation.
+
+### Changed
+
+- Documentation now treats the GitHub release wheel as the primary install path until PyPI is updated beyond `1.0.0`.
+- Plugin remains conservative: no `transform_terminal_output` or `transform_tool_result` compaction is enabled by default.
+- The plugin skips commands that already start with `rtk ` or the RTK preview marker.
+
+### Security
+
+- Metrics never store raw command strings, reducing the risk of leaking shell input or secrets.
+
+## 1.1.0 - 2026-05-02
+
+### Fixed
+
+- Corrected the pip entry point from `rtk_hermes:register` to `rtk_hermes`, matching Hermes' plugin loader behavior.
+- Documented Hermes v0.11+ opt-in plugin configuration through `plugins.enabled`.
+- Documented installation into the Python environment that actually runs Hermes.
+- Accepted `rtk rewrite` exit code `3` as a valid rewrite when stdout contains a rewritten command.
+
+## 1.0.0 - 2026-04-05
+
+### Added
+
+- Initial Hermes `pre_tool_call` plugin.
+- Delegation to `rtk rewrite` for terminal command rewriting.
+- Fail-open behavior when RTK is unavailable or no rewrite exists.

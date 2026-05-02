@@ -4,20 +4,19 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rtk-hermes"
-version = "1.1.0"
-description = "RTK plugin for Hermes — rewrites shell commands for 60-90% LLM token savings"
+version = "1.2.0"
+description = "Hermes plugin that rewrites terminal commands through RTK for lower-context tool output"
 readme = "README.md"
-license = {text = "MIT"}
+license = "MIT"
 requires-python = ">=3.9"
 authors = [
     {name = "rtk-ai", email = "info@rtk.sh"},
     {name = "Vinicius Gallotti", email = "vinicius.gallotti@gmail.com"},
 ]
-keywords = ["rtk", "hermes", "hermes-agent", "llm", "token-savings", "cli-proxy"]
+keywords = ["rtk", "hermes", "hermes-agent", "llm", "token-savings", "cli-proxy", "plugins"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
@@ -25,12 +24,22 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Libraries",
+    "Topic :: System :: Shells",
+]
+
+[project.optional-dependencies]
+dev = [
+    "build>=1.2",
+    "pytest>=8.0",
+    "tomli>=2.0; python_version < '3.11'",
+    "twine>=5.0",
 ]
 
 [project.urls]
 Homepage = "https://github.com/ogallotti/rtk-hermes"
 Repository = "https://github.com/ogallotti/rtk-hermes"
 Issues = "https://github.com/ogallotti/rtk-hermes/issues"
+Changelog = "https://github.com/ogallotti/rtk-hermes/blob/main/CHANGELOG.md"
 
 [project.entry-points."hermes_agent.plugins"]
 rtk-rewrite = "rtk_hermes"
@@ -40,3 +49,4 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
+addopts = "-q"

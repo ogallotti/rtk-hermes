@@ -12,10 +12,17 @@ Transparently rewrites shell commands executed via [Hermes](https://github.com/N
 brew install rtk
 # or: curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh
 
-# 2. Install the plugin
-pip install rtk-hermes
+# 2. Install the plugin into the same Python environment that runs Hermes
+"$(dirname "$(which hermes)")/python" -m pip install rtk-hermes
 
-# 3. Restart Hermes — the plugin auto-registers, no config needed
+# 3. Enable the plugin in ~/.hermes/config.yaml
+# Add rtk-rewrite to plugins.enabled:
+#
+# plugins:
+#   enabled:
+#     - rtk-rewrite
+
+# 4. Restart Hermes
 ```
 
 ## How it works
@@ -49,10 +56,19 @@ Everything that `rtk rewrite` supports (30+ commands): git, grep, find, ls, carg
 
 ## Configuration
 
-The plugin is enabled by default when RTK is found in `$PATH`. To disable:
+Hermes plugins are opt-in. After installing, add `rtk-rewrite` to `plugins.enabled` in `~/.hermes/config.yaml`:
 
 ```yaml
-# ~/.hermes/config.yaml
+plugins:
+  enabled:
+    - rtk-rewrite
+```
+
+Restart Hermes or start a new session after enabling it.
+
+To disable, remove it from `plugins.enabled` or add it to `plugins.disabled`:
+
+```yaml
 plugins:
   disabled:
     - rtk-rewrite
@@ -66,6 +82,20 @@ The plugin **never blocks command execution**:
 - `rtk rewrite` times out (>2s) → command passes through unchanged
 - `rtk rewrite` crashes → command passes through unchanged
 - No RTK equivalent → command passes through unchanged
+- Unexpected RTK exit code → warning is logged, command passes through unchanged
+
+## RTK rewrite exit codes
+
+`rtk rewrite` uses exit codes to describe the rewrite verdict:
+
+| Code | Meaning | Plugin behavior |
+|------|---------|-----------------|
+| `0` | Rewrite allowed | Apply rewrite |
+| `1` | No RTK equivalent | Pass through original command |
+| `2` | Deny rule matched | Pass through original command |
+| `3` | Ask/confirm verdict; rewritten command exists on stdout | Apply rewrite |
+
+Exit code `3` is common for valid rewrites such as `git status → rtk git status` and `cat file → rtk read file`, so the plugin treats both `0` and `3` as successful rewrites.
 
 ## License
 

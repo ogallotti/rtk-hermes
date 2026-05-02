@@ -11,8 +11,9 @@ Rust registry, not this file.
 Installation:
     pip install rtk-hermes
 
-The plugin auto-registers via the hermes_agent.plugins entry point.
-No manual configuration needed — just install and restart Hermes.
+The plugin is discovered via the hermes_agent.plugins entry point.
+Enable it by adding `rtk-rewrite` to plugins.enabled in ~/.hermes/config.yaml,
+then restart Hermes.
 """
 
 from __future__ import annotations
@@ -22,11 +23,16 @@ import shutil
 import subprocess
 from typing import Optional
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 logger = logging.getLogger(__name__)
 
 _rtk_available: Optional[bool] = None
+
+# `rtk rewrite` exit codes:
+# 0 = rewrite allowed, 1 = no equivalent, 2 = deny, 3 = ask/confirm.
+# Codes 0 and 3 both include a valid rewritten command on stdout.
+_RTK_REWRITE_OK_CODES = frozenset({0, 3})
 
 
 def _check_rtk() -> bool:
@@ -48,10 +54,22 @@ def _try_rewrite(command: str) -> Optional[str]:
             timeout=2,
         )
         rewritten = result.stdout.strip()
-        if result.returncode == 0 and rewritten and rewritten != command:
+        if result.returncode in _RTK_REWRITE_OK_CODES and rewritten and rewritten != command:
             return rewritten
+        if result.returncode not in (0, 1, 2, 3):
+            stderr = result.stderr.strip()
+            logger.warning(
+                "[rtk] unexpected `rtk rewrite` exit code %s for %r%s",
+                result.returncode,
+                command,
+                f": {stderr}" if stderr else "",
+            )
         return None
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+    except subprocess.TimeoutExpired:
+        logger.debug("[rtk] rewrite timed out for %r", command)
+        return None
+    except (FileNotFoundError, OSError) as exc:
+        logger.debug("[rtk] rewrite failed for %r: %s", command, exc)
         return None
 
 

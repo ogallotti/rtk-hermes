@@ -1,11 +1,25 @@
 """Tests for rtk-hermes plugin."""
 
 import subprocess
+import tomllib
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 import rtk_hermes
+
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_package_metadata_matches_module():
+    pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text())
+    assert pyproject["project"]["version"] == rtk_hermes.__version__
+    assert (
+        pyproject["project"]["entry-points"]["hermes_agent.plugins"]["rtk-rewrite"]
+        == "rtk_hermes"
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -32,11 +46,15 @@ class TestCheckRtk:
 
 
 class TestTryRewrite:
-    def _fake(self, stdout="", rc=0):
-        return subprocess.CompletedProcess([], rc, stdout=stdout, stderr="")
+    def _fake(self, stdout="", rc=0, stderr=""):
+        return subprocess.CompletedProcess([], rc, stdout=stdout, stderr=stderr)
 
-    def test_rewrites(self):
-        with patch("subprocess.run", return_value=self._fake("rtk git status\n")):
+    def test_rewrites_on_exit_0(self):
+        with patch("subprocess.run", return_value=self._fake("rtk git status\n", rc=0)):
+            assert rtk_hermes._try_rewrite("git status") == "rtk git status"
+
+    def test_rewrites_on_exit_3(self):
+        with patch("subprocess.run", return_value=self._fake("rtk git status\n", rc=3)):
             assert rtk_hermes._try_rewrite("git status") == "rtk git status"
 
     def test_same_command_returns_none(self):
@@ -47,9 +65,19 @@ class TestTryRewrite:
         with patch("subprocess.run", return_value=self._fake("", rc=1)):
             assert rtk_hermes._try_rewrite("custom_cmd") is None
 
+    def test_exit_2_returns_none(self):
+        with patch("subprocess.run", return_value=self._fake("", rc=2)):
+            assert rtk_hermes._try_rewrite("rm -rf /") is None
+
     def test_empty_stdout_returns_none(self):
         with patch("subprocess.run", return_value=self._fake("")):
             assert rtk_hermes._try_rewrite("git status") is None
+
+    def test_unexpected_exit_code_logs_warning(self, caplog):
+        with patch("subprocess.run", return_value=self._fake("", rc=99, stderr="boom")):
+            with caplog.at_level("WARNING", logger="rtk_hermes"):
+                assert rtk_hermes._try_rewrite("git status") is None
+        assert "unexpected `rtk rewrite` exit code 99" in caplog.text
 
     def test_timeout_returns_none(self):
         with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("rtk", 2)):
@@ -154,7 +182,7 @@ class TestIntegration:
             rtk_hermes.register(FakeCtx())
 
         args = {"command": "cargo test"}
-        fake = subprocess.CompletedProcess([], 0, stdout="rtk cargo test\n", stderr="")
+        fake = subprocess.CompletedProcess([], 3, stdout="rtk cargo test\n", stderr="")
         with patch("subprocess.run", return_value=fake):
             hooks["pre_tool_call"](tool_name="terminal", args=args, task_id="t")
         assert args["command"] == "rtk cargo test"

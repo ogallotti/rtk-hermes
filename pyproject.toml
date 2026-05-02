@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rtk-hermes"
-version = "1.0.0"
+version = "1.1.0"
 description = "RTK plugin for Hermes — rewrites shell commands for 60-90% LLM token savings"
 readme = "README.md"
 license = {text = "MIT"}
@@ -28,12 +28,15 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/rtk-ai/rtk"
-Repository = "https://github.com/rtk-ai/rtk"
-Issues = "https://github.com/rtk-ai/rtk/issues"
+Homepage = "https://github.com/ogallotti/rtk-hermes"
+Repository = "https://github.com/ogallotti/rtk-hermes"
+Issues = "https://github.com/ogallotti/rtk-hermes/issues"
 
 [project.entry-points."hermes_agent.plugins"]
-rtk-rewrite = "rtk_hermes:register"
+rtk-rewrite = "rtk_hermes"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]

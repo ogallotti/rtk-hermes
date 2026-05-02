@@ -23,8 +23,8 @@ RTK then returns filtered output to the LLM, which usually means fewer tokens in
 - Hermes hook used: `pre_tool_call`
 - Default mode: rewrite terminal commands in place
 - Failure mode: fail open; original command runs unchanged
-- Current GitHub release: `v1.2.0`
-- PyPI note: PyPI may lag behind GitHub releases. If PyPI still shows `1.0.0`, install from the GitHub release URL below.
+- Current PyPI/GitHub release: `v1.2.1`
+- PyPI publishing: automated through GitHub Actions Trusted Publishing; no long-lived PyPI token is required.
 
 ## Installation
 
@@ -51,24 +51,23 @@ rtk rewrite "git status"
 
 Install into the same Python environment that runs `hermes`. Installing into system Python, conda, or a random virtualenv will not make the plugin visible to Hermes.
 
-Recommended, pinned to the latest GitHub release:
-
-```bash
-"$(dirname "$(which hermes)")/python" -m pip install \
-  "https://github.com/ogallotti/rtk-hermes/releases/download/v1.2.0/rtk_hermes-1.2.0-py3-none-any.whl"
-```
-
-When PyPI is updated to the same version, this is also valid:
+Recommended:
 
 ```bash
 "$(dirname "$(which hermes)")/python" -m pip install --upgrade rtk-hermes
 ```
 
+Pinned GitHub release wheel, if you need it:
+
+```bash
+"$(dirname "$(which hermes)")/python" -m pip install \
+  "https://github.com/ogallotti/rtk-hermes/releases/download/v1.2.1/rtk_hermes-1.2.1-py3-none-any.whl"
+```
+
 If your Hermes install uses the default source layout, this explicit path also works:
 
 ```bash
-$HOME/.hermes/hermes-agent/venv/bin/python -m pip install \
-  "https://github.com/ogallotti/rtk-hermes/releases/download/v1.2.0/rtk_hermes-1.2.0-py3-none-any.whl"
+$HOME/.hermes/hermes-agent/venv/bin/python -m pip install --upgrade rtk-hermes
 ```
 
 ### 3. Enable the plugin in Hermes
@@ -207,7 +206,7 @@ PY
 Expected shape:
 
 ```text
-rtk-rewrite rtk_hermes 1.2.0 True
+rtk-rewrite rtk_hermes 1.2.1 True
 ```
 
 Check Hermes config:
@@ -268,11 +267,17 @@ plugins:
 
 The installed package is old. Versions before `1.1.0` used the wrong entry point target.
 
-Upgrade to the GitHub release:
+Upgrade from PyPI:
+
+```bash
+"$(dirname "$(which hermes)")/python" -m pip install --upgrade rtk-hermes
+```
+
+Pinned GitHub release wheel:
 
 ```bash
 "$(dirname "$(which hermes)")/python" -m pip install --force-reinstall \
-  "https://github.com/ogallotti/rtk-hermes/releases/download/v1.2.0/rtk_hermes-1.2.0-py3-none-any.whl"
+  "https://github.com/ogallotti/rtk-hermes/releases/download/v1.2.1/rtk_hermes-1.2.1-py3-none-any.whl"
 ```
 
 ### Rewritten commands do not appear

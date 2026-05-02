@@ -2,6 +2,13 @@
 
 All notable changes to `rtk-hermes` are documented here.
 
+## 1.2.1 - 2026-05-02
+
+### Changed
+
+- PyPI is now the primary install path again because `1.2.0` was successfully published through Trusted Publishing.
+- Release documentation now reflects the permanent tokenless PyPI publishing workflow.
+
 ## 1.2.0 - 2026-05-02
 
 ### Added

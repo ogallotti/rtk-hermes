@@ -25,7 +25,7 @@ import time
 from dataclasses import asdict, dataclass
 from typing import Optional
 
-__version__ = "1.2.0"
+__version__ = "1.2.1"
 
 logger = logging.getLogger(__name__)
 

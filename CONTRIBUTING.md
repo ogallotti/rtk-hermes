@@ -85,6 +85,23 @@ Unexpected codes should log a warning and pass through.
 
 - Keep fail-open behavior. The plugin must not block normal terminal execution if RTK is missing, slow or broken.
 
+## Release process
+
+PyPI publishing is designed to use Trusted Publishing through GitHub Actions, not long-lived API tokens.
+
+One-time PyPI project configuration:
+
+- Project: `rtk-hermes`
+- Platform: GitHub Actions
+- Owner: `ogallotti`
+- Repository: `rtk-hermes`
+- Workflow filename: `publish.yml`
+- Environment name: `pypi`
+
+After that is configured, publish by creating a GitHub release or by running the `Publish to PyPI` workflow manually from GitHub Actions.
+
+Manual local upload with `twine` should be reserved for emergencies only.
+
 ## Pull request notes
 
 Good PRs include:

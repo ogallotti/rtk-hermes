@@ -43,6 +43,11 @@ class TestTryRewrite:
         with patch("subprocess.run", return_value=self._fake("echo hello\n")):
             assert rtk_hermes._try_rewrite("echo hello") is None
 
+    def test_exit_3_ask_returns_rewrite(self):
+        """Exit code 3 (ask) is a valid rewrite — must not be dropped."""
+        with patch("subprocess.run", return_value=self._fake("rtk ls -la /tmp\n", rc=3)):
+            assert rtk_hermes._try_rewrite("ls -la /tmp") == "rtk ls -la /tmp"
+
     def test_exit_1_returns_none(self):
         with patch("subprocess.run", return_value=self._fake("", rc=1)):
             assert rtk_hermes._try_rewrite("custom_cmd") is None

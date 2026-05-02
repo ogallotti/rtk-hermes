@@ -48,7 +48,7 @@ def _try_rewrite(command: str) -> Optional[str]:
             timeout=2,
         )
         rewritten = result.stdout.strip()
-        if result.returncode == 0 and rewritten and rewritten != command:
+        if rewritten and rewritten != command:
             return rewritten
         return None
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError):

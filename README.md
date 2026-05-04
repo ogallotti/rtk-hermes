@@ -23,7 +23,7 @@ RTK then returns filtered output to the LLM, which usually means fewer tokens in
 - Hermes hook used: `pre_tool_call`
 - Default mode: rewrite terminal commands in place
 - Failure mode: fail open; original command runs unchanged
-- Current PyPI/GitHub release: `v1.2.1`
+- Current PyPI/GitHub release: `v1.2.2`
 - PyPI publishing: automated through GitHub Actions Trusted Publishing; no long-lived PyPI token is required.
 
 ## Installation
@@ -51,23 +51,37 @@ rtk rewrite "git status"
 
 Install into the same Python environment that runs `hermes`. Installing into system Python, conda, or a random virtualenv will not make the plugin visible to Hermes.
 
-Recommended:
+For the standard Hermes source install, use the bundled virtualenv directly:
 
 ```bash
-"$(dirname "$(which hermes)")/python" -m pip install --upgrade rtk-hermes
+HERMES_PY="$HOME/.hermes/hermes-agent/venv/bin/python"
+"$HERMES_PY" -m pip install --upgrade rtk-hermes
 ```
+
+If `hermes` is installed through a symlinked shim and the standard path does not exist, derive the Python executable from the real `hermes` path:
+
+```bash
+HERMES_BIN="$(command -v hermes)"
+HERMES_REAL="$(python3 -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$HERMES_BIN")"
+HERMES_PY="$(dirname "$HERMES_REAL")/python"
+"$HERMES_PY" -m pip install --upgrade rtk-hermes
+```
+
+If that fails with `No module named pip`, the Hermes virtualenv exists but was created without pip. Use `uv` to install into that virtualenv without touching system Python:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+~/.local/bin/uv pip install --python "$HOME/.hermes/hermes-agent/venv/bin/python" --upgrade rtk-hermes
+```
+
+On Debian/Ubuntu, if you see `This environment is externally managed`, you are using system `pip`, not Hermes' virtualenv. Do not use `--break-system-packages`; point the install at Hermes' Python or use the `uv pip install --python ...` command above.
 
 Pinned GitHub release wheel, if you need it:
 
 ```bash
-"$(dirname "$(which hermes)")/python" -m pip install \
-  "https://github.com/ogallotti/rtk-hermes/releases/download/v1.2.1/rtk_hermes-1.2.1-py3-none-any.whl"
-```
-
-If your Hermes install uses the default source layout, this explicit path also works:
-
-```bash
-$HOME/.hermes/hermes-agent/venv/bin/python -m pip install --upgrade rtk-hermes
+HERMES_PY="$HOME/.hermes/hermes-agent/venv/bin/python"
+"$HERMES_PY" -m pip install \
+  "https://github.com/ogallotti/rtk-hermes/releases/download/v1.2.2/rtk_hermes-1.2.2-py3-none-any.whl"
 ```
 
 ### 3. Enable the plugin in Hermes
@@ -194,7 +208,8 @@ If output compaction is added later, it should be opt-in and heavily tested.
 Check the installed entry point:
 
 ```bash
-"$(dirname "$(which hermes)")/python" - <<'PY'
+HERMES_PY="$HOME/.hermes/hermes-agent/venv/bin/python"
+"$HERMES_PY" - <<'PY'
 import importlib.metadata as md
 for ep in md.entry_points().select(group="hermes_agent.plugins"):
     if ep.name == "rtk-rewrite":
@@ -206,7 +221,7 @@ PY
 Expected shape:
 
 ```text
-rtk-rewrite rtk_hermes 1.2.1 True
+rtk-rewrite rtk_hermes 1.2.2 True
 ```
 
 Check Hermes config:
@@ -245,13 +260,14 @@ python -m build
 
 Most likely cause: it was installed into the wrong Python environment.
 
-Use this interpreter:
+Use the same interpreter chosen during installation:
 
 ```bash
-"$(dirname "$(which hermes)")/python" -m pip show rtk-hermes
+HERMES_PY="$HOME/.hermes/hermes-agent/venv/bin/python"
+"$HERMES_PY" -m pip show rtk-hermes
 ```
 
-If that command cannot find the package, reinstall using the same interpreter.
+If that command cannot find the package, reinstall using the same interpreter or the `uv pip install --python ...` fallback from the installation section.
 
 ### `hermes plugins enable rtk-rewrite` says the plugin is not installed
 
@@ -270,14 +286,22 @@ The installed package is old. Versions before `1.1.0` used the wrong entry point
 Upgrade from PyPI:
 
 ```bash
-"$(dirname "$(which hermes)")/python" -m pip install --upgrade rtk-hermes
+HERMES_PY="$HOME/.hermes/hermes-agent/venv/bin/python"
+"$HERMES_PY" -m pip install --upgrade rtk-hermes
+```
+
+If that Python has no pip, use:
+
+```bash
+~/.local/bin/uv pip install --python "$HOME/.hermes/hermes-agent/venv/bin/python" --upgrade rtk-hermes
 ```
 
 Pinned GitHub release wheel:
 
 ```bash
-"$(dirname "$(which hermes)")/python" -m pip install --force-reinstall \
-  "https://github.com/ogallotti/rtk-hermes/releases/download/v1.2.1/rtk_hermes-1.2.1-py3-none-any.whl"
+HERMES_PY="$HOME/.hermes/hermes-agent/venv/bin/python"
+"$HERMES_PY" -m pip install --force-reinstall \
+  "https://github.com/ogallotti/rtk-hermes/releases/download/v1.2.2/rtk_hermes-1.2.2-py3-none-any.whl"
 ```
 
 ### Rewritten commands do not appear

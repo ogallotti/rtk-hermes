@@ -56,10 +56,13 @@ Before changing plugin loading or registration, verify:
       - rtk-rewrite
   ```
 
-- install instructions use Hermes' own Python interpreter:
+- install instructions use Hermes' own Python interpreter and avoid system `pip`:
 
   ```bash
-  "$(dirname "$(which hermes)")/python" -m pip install ...
+  HERMES_PY="$HOME/.hermes/hermes-agent/venv/bin/python"
+  "$HERMES_PY" -m pip install ...
+  # If the Hermes venv has no pip:
+  uv pip install --python "$HERMES_PY" ...
   ```
 
 ## RTK rewrite exit codes

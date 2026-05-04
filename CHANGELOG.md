@@ -2,6 +2,13 @@
 
 All notable changes to `rtk-hermes` are documented here.
 
+## 1.2.2 - 2026-05-02
+
+### Changed
+
+- Installation docs now handle Debian/Ubuntu PEP 668 environments, Hermes shims and Hermes virtualenvs created without `pip`.
+- Added `uv pip install --python ...` as the safe fallback for pip-less Hermes virtualenvs.
+
 ## 1.2.1 - 2026-05-02
 
 ### Changed

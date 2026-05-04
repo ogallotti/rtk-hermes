@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rtk-hermes"
-version = "1.2.1"
+version = "1.2.2"
 description = "Hermes plugin that rewrites terminal commands through RTK for lower-context tool output"
 readme = "README.md"
 license = "MIT"

@@ -23,7 +23,7 @@ RTK then returns filtered output to the LLM, which usually means fewer tokens in
 - Hermes hook used: `pre_tool_call`
 - Default mode: rewrite terminal commands in place
 - Failure mode: fail open; original command runs unchanged
-- Current PyPI/GitHub release: `v1.2.2`
+- Current PyPI/GitHub release: `v1.2.3`
 - PyPI publishing: automated through GitHub Actions Trusted Publishing; no long-lived PyPI token is required.
 
 ## Installation
@@ -81,7 +81,7 @@ Pinned GitHub release wheel, if you need it:
 ```bash
 HERMES_PY="$HOME/.hermes/hermes-agent/venv/bin/python"
 "$HERMES_PY" -m pip install \
-  "https://github.com/ogallotti/rtk-hermes/releases/download/v1.2.2/rtk_hermes-1.2.2-py3-none-any.whl"
+  "https://github.com/ogallotti/rtk-hermes/releases/download/v1.2.3/rtk_hermes-1.2.3-py3-none-any.whl"
 ```
 
 ### 3. Enable the plugin in Hermes
@@ -133,6 +133,7 @@ Check RTK's own docs for the current command list: https://github.com/rtk-ai/rtk
 | `RTK_HERMES_MODE` | `rewrite` | `rewrite`, `suggest`, `off` | `rewrite` mutates terminal commands; `suggest` logs suggestions without changing execution; `off` disables the plugin at register time. |
 | `RTK_HERMES_TIMEOUT_MS` | `2000` | positive integer | Max time spent in `rtk rewrite` per command. |
 | `RTK_HERMES_PREVIEW_MARKER` | `true` | `true`, `false` | Prefixes rewritten shell commands with `: RTK &&` so Hermes previews clearly show RTK is active. |
+| `RTK_HERMES_BACKENDS` | `local` | comma-separated backend names, or `all` | Terminal backends where rewrites are allowed. Defaults to local only because SSH, Docker and remote sandboxes also need `rtk` installed inside the execution backend. |
 
 Example:
 
@@ -140,7 +141,16 @@ Example:
 export RTK_HERMES_MODE=suggest
 export RTK_HERMES_TIMEOUT_MS=500
 export RTK_HERMES_PREVIEW_MARKER=false
+export RTK_HERMES_BACKENDS=local
 hermes
+```
+
+For SSH or another remote backend, only opt in if `rtk` is installed in that execution environment too:
+
+```bash
+export RTK_HERMES_BACKENDS=local,ssh
+# or, if every configured backend has rtk available:
+export RTK_HERMES_BACKENDS=all
 ```
 
 ## Slash command
@@ -178,6 +188,7 @@ The plugin should never block command execution.
 | Condition | Behavior |
 |---|---|
 | RTK binary not found | Plugin does not register the rewrite hook. |
+| Terminal backend is not enabled by `RTK_HERMES_BACKENDS` | Original command runs unchanged. |
 | `rtk rewrite` times out | Original command runs unchanged. |
 | `rtk rewrite` crashes | Original command runs unchanged. |
 | No RTK equivalent | Original command runs unchanged. |
@@ -221,7 +232,7 @@ PY
 Expected shape:
 
 ```text
-rtk-rewrite rtk_hermes 1.2.2 True
+rtk-rewrite rtk_hermes 1.2.3 True
 ```
 
 Check Hermes config:
@@ -301,7 +312,7 @@ Pinned GitHub release wheel:
 ```bash
 HERMES_PY="$HOME/.hermes/hermes-agent/venv/bin/python"
 "$HERMES_PY" -m pip install --force-reinstall \
-  "https://github.com/ogallotti/rtk-hermes/releases/download/v1.2.2/rtk_hermes-1.2.2-py3-none-any.whl"
+  "https://github.com/ogallotti/rtk-hermes/releases/download/v1.2.3/rtk_hermes-1.2.3-py3-none-any.whl"
 ```
 
 ### Rewritten commands do not appear
@@ -313,6 +324,7 @@ Check:
 3. `plugins.enabled` contains `rtk-rewrite`.
 4. Hermes was restarted after the config change.
 5. `RTK_HERMES_MODE` is not set to `off` or `suggest`.
+6. `RTK_HERMES_BACKENDS` includes the active terminal backend. By default, only `local` is enabled.
 
 ## Development
 

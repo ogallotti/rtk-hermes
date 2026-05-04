@@ -2,6 +2,13 @@
 
 All notable changes to `rtk-hermes` are documented here.
 
+## 1.2.3 - 2026-05-04
+
+### Fixed
+
+- Avoid rewriting terminal commands for SSH, Docker and remote/sandbox backends by default. Rewritten commands require `rtk` to exist in the execution backend, not just beside Hermes.
+- Added `RTK_HERMES_BACKENDS` so users can opt into `ssh`, `docker` or `all` when those backends have `rtk` installed.
+
 ## 1.2.2 - 2026-05-02
 
 ### Changed

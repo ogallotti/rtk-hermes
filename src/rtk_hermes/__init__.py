@@ -7,7 +7,7 @@ before execution. It is intentionally conservative: all rewrite logic stays in
 performed by default.
 
 Installation:
-    "$(dirname "$(which hermes)")/python" -m pip install rtk-hermes
+    "$HOME/.hermes/hermes-agent/venv/bin/python" -m pip install rtk-hermes
 
 The plugin is discovered via the `hermes_agent.plugins` entry point. Enable it
 by adding `rtk-rewrite` to `plugins.enabled` in `~/.hermes/config.yaml`, then
@@ -25,7 +25,7 @@ import time
 from dataclasses import asdict, dataclass
 from typing import Optional
 
-__version__ = "1.2.2"
+__version__ = "1.2.3"
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +49,7 @@ class RtkHermesConfig:
     mode: str = "rewrite"
     timeout_ms: int = _DEFAULT_TIMEOUT_MS
     preview_marker: bool = True
+    enabled_backends: tuple[str, ...] = ("local",)
 
 
 @dataclass
@@ -65,6 +66,7 @@ class RtkHermesMetrics:
     errors: int = 0
     unexpected_exit_codes: int = 0
     missing_rtk: int = 0
+    skipped_backend: int = 0
     total_rewrite_ms: float = 0.0
 
     @property
@@ -103,6 +105,24 @@ def _parse_timeout_ms(value: str | None) -> int:
     return timeout
 
 
+def _parse_enabled_backends(value: str | None) -> tuple[str, ...]:
+    """Parse RTK_HERMES_BACKENDS.
+
+    Defaults to local only. A rewrite happens before Hermes dispatches the
+    terminal command, so `rtk` must exist in the execution backend too. SSH,
+    Docker and remote sandboxes are therefore opt-in.
+    """
+    raw = (value or "local").strip().lower()
+    if not raw:
+        return ("local",)
+    parts = tuple(part.strip() for part in raw.split(",") if part.strip())
+    if not parts:
+        return ("local",)
+    if "all" in parts:
+        return ("all",)
+    return parts
+
+
 def _load_config() -> RtkHermesConfig:
     mode = os.getenv("RTK_HERMES_MODE", "rewrite").strip().lower()
     if mode not in _MODE_VALUES:
@@ -112,6 +132,7 @@ def _load_config() -> RtkHermesConfig:
         mode=mode,
         timeout_ms=_parse_timeout_ms(os.getenv("RTK_HERMES_TIMEOUT_MS")),
         preview_marker=_parse_bool(os.getenv("RTK_HERMES_PREVIEW_MARKER"), default=True),
+        enabled_backends=_parse_enabled_backends(os.getenv("RTK_HERMES_BACKENDS")),
     )
 
 
@@ -136,6 +157,25 @@ def _with_preview_marker(command: str, *, enabled: bool) -> str:
     if stripped.startswith(": RTK && "):
         return command
     return f": RTK && {command}"
+
+
+def _current_terminal_backend(args: dict | None = None) -> str:
+    """Return the active Hermes terminal backend name."""
+    args = args or {}
+    for key in ("env_type", "backend"):
+        value = args.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip().lower()
+    return (
+        os.getenv("TERMINAL_ENV")
+        or os.getenv("TERMINAL_BACKEND")
+        or "local"
+    ).strip().lower() or "local"
+
+
+def _backend_enabled(backend: str, config: RtkHermesConfig) -> bool:
+    enabled = config.enabled_backends
+    return "all" in enabled or backend in enabled
 
 
 def _try_rewrite(command: str, *, config: RtkHermesConfig | None = None) -> Optional[str]:
@@ -191,6 +231,12 @@ def _pre_tool_call(*, tool_name: str, args: dict, task_id: str = "", **_kwargs) 
 
     cfg = _load_config()
     if cfg.mode == "off":
+        return
+
+    backend = _current_terminal_backend(args)
+    if not _backend_enabled(backend, cfg):
+        _metrics.skipped_backend += 1
+        logger.debug("[rtk] rewrite skipped for terminal backend %s", backend)
         return
 
     command = args.get("command")
@@ -254,6 +300,7 @@ def _handle_command(raw_args: str = "") -> str:
                     "RTK_HERMES_MODE": "rewrite | suggest | off",
                     "RTK_HERMES_TIMEOUT_MS": f"integer milliseconds; default {_DEFAULT_TIMEOUT_MS}",
                     "RTK_HERMES_PREVIEW_MARKER": "true | false; default true",
+                    "RTK_HERMES_BACKENDS": "comma-separated Hermes terminal backends; default local; use all to opt into every backend",
                 },
                 "current": asdict(_load_config()),
             },

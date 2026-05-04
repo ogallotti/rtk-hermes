@@ -33,6 +33,9 @@ def _reset_state(monkeypatch):
     monkeypatch.delenv("RTK_HERMES_MODE", raising=False)
     monkeypatch.delenv("RTK_HERMES_TIMEOUT_MS", raising=False)
     monkeypatch.delenv("RTK_HERMES_PREVIEW_MARKER", raising=False)
+    monkeypatch.delenv("RTK_HERMES_BACKENDS", raising=False)
+    monkeypatch.delenv("TERMINAL_ENV", raising=False)
+    monkeypatch.delenv("TERMINAL_BACKEND", raising=False)
     yield
     rtk_hermes._rtk_available = None
     rtk_hermes._reset_metrics()
@@ -44,15 +47,23 @@ class TestConfig:
         assert cfg.mode == "rewrite"
         assert cfg.timeout_ms == 2000
         assert cfg.preview_marker is True
+        assert cfg.enabled_backends == ("local",)
 
     def test_env_overrides(self, monkeypatch):
         monkeypatch.setenv("RTK_HERMES_MODE", "suggest")
         monkeypatch.setenv("RTK_HERMES_TIMEOUT_MS", "500")
         monkeypatch.setenv("RTK_HERMES_PREVIEW_MARKER", "false")
+        monkeypatch.setenv("RTK_HERMES_BACKENDS", "local,ssh")
         cfg = rtk_hermes._load_config()
         assert cfg.mode == "suggest"
         assert cfg.timeout_ms == 500
         assert cfg.preview_marker is False
+        assert cfg.enabled_backends == ("local", "ssh")
+
+    def test_backends_all(self, monkeypatch):
+        monkeypatch.setenv("RTK_HERMES_BACKENDS", "all,ssh")
+        cfg = rtk_hermes._load_config()
+        assert cfg.enabled_backends == ("all",)
 
     def test_invalid_env_falls_back(self, monkeypatch):
         monkeypatch.setenv("RTK_HERMES_MODE", "bad")
@@ -62,6 +73,24 @@ class TestConfig:
         assert cfg.mode == "rewrite"
         assert cfg.timeout_ms == 2000
         assert cfg.preview_marker is True
+
+
+class TestBackendSelection:
+    def test_default_backend_is_local(self):
+        assert rtk_hermes._current_terminal_backend({}) == "local"
+
+    def test_terminal_env_backend(self, monkeypatch):
+        monkeypatch.setenv("TERMINAL_ENV", "ssh")
+        assert rtk_hermes._current_terminal_backend({}) == "ssh"
+
+    def test_args_backend_wins(self, monkeypatch):
+        monkeypatch.setenv("TERMINAL_ENV", "local")
+        assert rtk_hermes._current_terminal_backend({"env_type": "docker"}) == "docker"
+
+    def test_backend_enabled(self):
+        assert rtk_hermes._backend_enabled("local", rtk_hermes.RtkHermesConfig()) is True
+        assert rtk_hermes._backend_enabled("ssh", rtk_hermes.RtkHermesConfig()) is False
+        assert rtk_hermes._backend_enabled("ssh", rtk_hermes.RtkHermesConfig(enabled_backends=("all",))) is True
 
 
 class TestCheckRtk:
@@ -205,6 +234,30 @@ class TestPreToolCall:
             m.assert_not_called()
         assert args["command"] == "git status"
 
+    def test_ssh_backend_skips_by_default(self, monkeypatch):
+        monkeypatch.setenv("TERMINAL_ENV", "ssh")
+        args = {"command": "git status"}
+        with patch.object(rtk_hermes, "_try_rewrite") as m:
+            rtk_hermes._pre_tool_call(tool_name="terminal", args=args, task_id="t")
+            m.assert_not_called()
+        assert args["command"] == "git status"
+        assert rtk_hermes._metrics.skipped_backend == 1
+
+    def test_ssh_backend_can_be_enabled(self, monkeypatch):
+        monkeypatch.setenv("TERMINAL_ENV", "ssh")
+        monkeypatch.setenv("RTK_HERMES_BACKENDS", "local,ssh")
+        args = {"command": "git status"}
+        with patch.object(rtk_hermes, "_try_rewrite", return_value="rtk git status"):
+            rtk_hermes._pre_tool_call(tool_name="terminal", args=args, task_id="t")
+        assert args["command"] == ": RTK && rtk git status"
+
+    def test_backend_arg_skips_when_not_enabled(self):
+        args = {"command": "git status", "env_type": "docker"}
+        with patch.object(rtk_hermes, "_try_rewrite") as m:
+            rtk_hermes._pre_tool_call(tool_name="terminal", args=args, task_id="t")
+            m.assert_not_called()
+        assert args["command"] == "git status"
+
     def test_ignores_already_rtk_command(self):
         args = {"command": "rtk git status"}
         with patch.object(rtk_hermes, "_try_rewrite") as m:
@@ -278,6 +331,8 @@ class TestSlashCommand:
     def test_config_returns_json(self):
         data = rtk_hermes.json.loads(rtk_hermes._handle_command("config"))
         assert "RTK_HERMES_MODE" in data["env"]
+        assert "RTK_HERMES_BACKENDS" in data["env"]
+        assert data["current"]["enabled_backends"] == ["local"]
 
     def test_help_for_unknown(self):
         assert "Usage: /rtk" in rtk_hermes._handle_command("unknown")

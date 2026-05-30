@@ -2,6 +2,12 @@
 
 All notable changes to `rtk-hermes` are documented here.
 
+## Unreleased
+
+### Security
+
+- Reject malformed `rtk rewrite` stdout containing embedded newlines, carriage returns or NUL bytes so diagnostic or corrupted output cannot be executed as extra shell statements.
+
 ## 1.2.3 - 2026-05-04
 
 ### Fixed

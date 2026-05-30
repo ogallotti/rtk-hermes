@@ -191,6 +191,23 @@ class TestTryRewrite:
         with patch("subprocess.run", return_value=self._fake("  rtk ls  \n")):
             assert rtk_hermes._try_rewrite("ls") == "rtk ls"
 
+    @pytest.mark.parametrize(
+        "stdout",
+        [
+            "rtk git status\necho leaked\n",
+            "rtk git status\r\necho leaked\r\n",
+            "rtk git status\x00echo leaked",
+        ],
+    )
+    def test_rejects_malformed_multiline_rewrite_output(self, stdout, caplog):
+        with patch("subprocess.run", return_value=self._fake(stdout, rc=0)):
+            with caplog.at_level("WARNING", logger="rtk_hermes"):
+                assert rtk_hermes._try_rewrite("git status") is None
+        assert rtk_hermes._metrics.malformed_output == 1
+        assert "malformed `rtk rewrite` stdout rejected" in caplog.text
+        assert "echo leaked" not in caplog.text
+        assert "git status" not in caplog.text
+
     def test_passes_command_as_arg_and_timeout(self):
         cfg = rtk_hermes.RtkHermesConfig(timeout_ms=500)
         with patch("subprocess.run", return_value=self._fake("", rc=1)) as m:

@@ -191,6 +191,7 @@ The plugin should never block command execution.
 | Terminal backend is not enabled by `RTK_HERMES_BACKENDS` | Original command runs unchanged. |
 | `rtk rewrite` times out | Original command runs unchanged. |
 | `rtk rewrite` crashes | Original command runs unchanged. |
+| `rtk rewrite` emits multiline or NUL-containing stdout | Original command runs unchanged; output is redacted in logs. |
 | No RTK equivalent | Original command runs unchanged. |
 | Unexpected RTK exit code | Warning is logged; original command runs unchanged. |
 

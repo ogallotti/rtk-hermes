@@ -65,6 +65,7 @@ class RtkHermesMetrics:
     timeouts: int = 0
     errors: int = 0
     unexpected_exit_codes: int = 0
+    malformed_output: int = 0
     missing_rtk: int = 0
     skipped_backend: int = 0
     total_rewrite_ms: float = 0.0
@@ -178,6 +179,25 @@ def _backend_enabled(backend: str, config: RtkHermesConfig) -> bool:
     return "all" in enabled or backend in enabled
 
 
+def _normalize_rewrite_output(stdout: str) -> Optional[str]:
+    """Return a safe single-line RTK rewrite, or None.
+
+    Hermes passes terminal commands to a shell. A rewritten command containing
+    embedded newlines, carriage returns or NUL bytes could execute additional
+    shell statements if RTK ever emitted diagnostic text or malformed output on
+    stdout. Keep the fail-open contract: reject malformed rewrites and let the
+    original command run unchanged.
+    """
+    rewritten = stdout.strip()
+    if not rewritten:
+        return None
+    if any(ch in rewritten for ch in ("\n", "\r", "\x00")):
+        _metrics.malformed_output += 1
+        logger.warning("[rtk] malformed `rtk rewrite` stdout rejected; output redacted")
+        return None
+    return rewritten
+
+
 def _try_rewrite(command: str, *, config: RtkHermesConfig | None = None) -> Optional[str]:
     """Delegate to `rtk rewrite` and return the rewritten command, or None."""
     cfg = config or _load_config()
@@ -190,7 +210,7 @@ def _try_rewrite(command: str, *, config: RtkHermesConfig | None = None) -> Opti
             text=True,
             timeout=cfg.timeout_ms / 1000,
         )
-        rewritten = result.stdout.strip()
+        rewritten = _normalize_rewrite_output(result.stdout)
         if result.returncode in _RTK_REWRITE_OK_CODES and rewritten and rewritten != command:
             return rewritten
         if result.returncode == 1:

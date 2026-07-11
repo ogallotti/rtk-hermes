@@ -1,0 +1,15 @@
+{
+  "name": "rtk-stats",
+  "label": "RTK Stats",
+  "description": "RTK token savings dashboard — shows total tokens saved, most used filters, and rewrite failure count.",
+  "icon": "shield",
+  "version": "1.0.0",
+  "tab": {
+    "path": "rtk-stats",
+    "position": "after:skills"
+  },
+  "entry": "dashboard/dist/index.js",
+  "css": "dashboard/dist/style.css",
+  "has_api": true,
+  "source": "rtk-hermes"
+}

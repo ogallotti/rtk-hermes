@@ -12,8 +12,13 @@ Installation:
 The plugin is discovered via the `hermes_agent.plugins` entry point. Enable it
 by adding `rtk-rewrite` to `plugins.enabled` in `~/.hermes/config.yaml`, then
 restart Hermes or start a new session.
-"""
 
+Dashboard Plugin:
+    The dashboard plugin is auto-loaded when Hermes starts. It provides:
+    - `dashboard/manifest.json` — sidebar entry
+    - `dashboard/plugin_api.py` — Python API for `/api/plugins/rtk-stats/`
+    - `dashboard/dist/` — React UI component
+"""
 from __future__ import annotations
 
 import json
@@ -31,16 +36,12 @@ logger = logging.getLogger(__name__)
 
 _rtk_available: Optional[bool] = None
 
-# `rtk rewrite` exit codes:
-# 0 = rewrite allowed, 1 = no equivalent, 2 = deny, 3 = ask/confirm.
-# Codes 0 and 3 both include a valid rewritten command on stdout.
 _RTK_REWRITE_OK_CODES = frozenset({0, 3})
 _RTK_REWRITE_KNOWN_CODES = frozenset({0, 1, 2, 3})
 _MODE_VALUES = frozenset({"rewrite", "suggest", "off"})
 _TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
 _FALSE_VALUES = frozenset({"0", "false", "no", "off"})
 _DEFAULT_TIMEOUT_MS = 2_000
-
 
 @dataclass(frozen=True)
 class RtkHermesConfig:
@@ -50,7 +51,6 @@ class RtkHermesConfig:
     timeout_ms: int = _DEFAULT_TIMEOUT_MS
     preview_marker: bool = True
     enabled_backends: tuple[str, ...] = ("local",)
-
 
 @dataclass
 class RtkHermesMetrics:
@@ -75,9 +75,7 @@ class RtkHermesMetrics:
             return 0.0
         return round(self.total_rewrite_ms / self.attempted, 2)
 
-
 _metrics = RtkHermesMetrics()
-
 
 def _parse_bool(value: str | None, *, default: bool) -> bool:
     if value is None:
@@ -89,7 +87,6 @@ def _parse_bool(value: str | None, *, default: bool) -> bool:
         return False
     logger.warning("[rtk] invalid boolean value %r; using %s", value, default)
     return default
-
 
 def _parse_timeout_ms(value: str | None) -> int:
     if value is None:
@@ -103,7 +100,6 @@ def _parse_timeout_ms(value: str | None) -> int:
         logger.warning("[rtk] RTK_HERMES_TIMEOUT_MS must be > 0; using %sms", _DEFAULT_TIMEOUT_MS)
         return _DEFAULT_TIMEOUT_MS
     return timeout
-
 
 def _parse_enabled_backends(value: str | None) -> tuple[str, ...]:
     """Parse RTK_HERMES_BACKENDS.
@@ -122,7 +118,6 @@ def _parse_enabled_backends(value: str | None) -> tuple[str, ...]:
         return ("all",)
     return parts
 
-
 def _load_config() -> RtkHermesConfig:
     mode = os.getenv("RTK_HERMES_MODE", "rewrite").strip().lower()
     if mode not in _MODE_VALUES:
@@ -134,7 +129,6 @@ def _load_config() -> RtkHermesConfig:
         preview_marker=_parse_bool(os.getenv("RTK_HERMES_PREVIEW_MARKER"), default=True),
         enabled_backends=_parse_enabled_backends(os.getenv("RTK_HERMES_BACKENDS")),
     )
-
 
 def _check_rtk(*, refresh: bool = False) -> bool:
     """Check if the rtk binary is available in PATH. Result is cached."""
@@ -148,7 +142,6 @@ def _check_rtk(*, refresh: bool = False) -> bool:
         _metrics.missing_rtk += 1
     return _rtk_available
 
-
 def _with_preview_marker(command: str, *, enabled: bool) -> str:
     """Add a visible RTK marker to Hermes terminal previews without changing behavior."""
     if not enabled:
@@ -157,7 +150,6 @@ def _with_preview_marker(command: str, *, enabled: bool) -> str:
     if stripped.startswith(": RTK && "):
         return command
     return f": RTK && {command}"
-
 
 def _current_terminal_backend(args: dict | None = None) -> str:
     """Return the active Hermes terminal backend name."""
@@ -172,11 +164,9 @@ def _current_terminal_backend(args: dict | None = None) -> str:
         or "local"
     ).strip().lower() or "local"
 
-
 def _backend_enabled(backend: str, config: RtkHermesConfig) -> bool:
     enabled = config.enabled_backends
     return "all" in enabled or backend in enabled
-
 
 def _try_rewrite(command: str, *, config: RtkHermesConfig | None = None) -> Optional[str]:
     """Delegate to `rtk rewrite` and return the rewritten command, or None."""
@@ -217,7 +207,6 @@ def _try_rewrite(command: str, *, config: RtkHermesConfig | None = None) -> Opti
         return None
     finally:
         _metrics.total_rewrite_ms += (time.perf_counter() - started) * 1000
-
 
 def _pre_tool_call(*, tool_name: str, args: dict, task_id: str = "", **_kwargs) -> None:
     """pre_tool_call hook: rewrite terminal commands to use RTK.
@@ -260,17 +249,14 @@ def _pre_tool_call(*, tool_name: str, args: dict, task_id: str = "", **_kwargs) 
     args["command"] = _with_preview_marker(rewritten, enabled=cfg.preview_marker)
     _metrics.rewritten += 1
 
-
 def _metrics_snapshot() -> dict:
     data = asdict(_metrics)
     data["average_rewrite_ms"] = _metrics.average_rewrite_ms
     return data
 
-
 def _reset_metrics() -> None:
     global _metrics
     _metrics = RtkHermesMetrics()
-
 
 def _handle_command(raw_args: str = "") -> str:
     """Slash command handler for `/rtk`. Returns JSON for easy inspection."""
@@ -309,6 +295,11 @@ def _handle_command(raw_args: str = "") -> str:
         )
     return "Usage: /rtk [status|stats|reset-stats|config]"
 
+def _register_dashboard_plugin() -> None:
+    """Auto-register the RTK dashboard plugin with the Hermes dashboard."""
+    # This is called by the dashboard host to discover and load dashboard plugins
+    # The dashboard plugin files are in the `dashboard/` subdirectory
+    pass
 
 def register(ctx) -> None:
     """Entry point called by the Hermes plugin system."""

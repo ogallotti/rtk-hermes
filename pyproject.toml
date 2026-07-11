@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rtk-hermes"
-version = "1.2.3"
+version = "1.3.0"
 description = "Hermes plugin that rewrites terminal commands through RTK for lower-context tool output"
 readme = "README.md"
 license = "MIT"
@@ -46,6 +46,9 @@ rtk-rewrite = "rtk_hermes"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+rtk_hermes = ["dashboard/**/*"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
